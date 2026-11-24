@@ -1,0 +1,166 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="480" viewBox="0 0 1200 480" role="img" aria-labelledby="title desc">
+<title id="title">lerobot-to-cosmos: visual abstract</title>
+<desc id="desc">A LeRobot v3.0 dataset (100 episodes, 4 cameras including depth, 30 fps, stored as long shared videos) is cut into one clip per episode and camera, resampled to 5 fps and 256 by 256, with depth rendered as grayscale, written in the NVIDIA Cosmos3 video-SFT layout (400 clips, a JSONL index, captions and validation prompts), then checked with NVIDIA's own data loader, optionally trained for a few steps on GPUs, and uploaded to the Hugging Face Hub.</desc>
+<style>
+  .t { fill:#1f2328; font-family:Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; }
+  .m { fill:#59636e; font-family:Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; }
+  .mono { fill:#1f2328; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace; }
+  .monom { fill:#59636e; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace; }
+  .acc { fill:#0e8a7e; }
+  .accs { stroke:#0e8a7e; fill:none; }
+  .ln { stroke:#d1d9e0; fill:none; }
+  .lnd { stroke:#8c959f; fill:none; }
+  .bx { fill:#f6f8fa; stroke:#d1d9e0; }
+  .rgb { fill:#e6eaef; }
+  .g0 { stop-color:#ffffff; } .g1 { stop-color:#1f2328; }
+  @media (prefers-color-scheme: dark) {
+    .t, .mono { fill:#e6edf3; }
+    .m, .monom { fill:#9198a1; }
+    .acc { fill:#3fb9a8; }
+    .accs { stroke:#3fb9a8; }
+    .ln { stroke:#3d444d; }
+    .lnd { stroke:#656c76; }
+    .bx { fill:#151b23; stroke:#3d444d; }
+    .rgb { fill:#262c36; }
+    .g0 { stop-color:#f0f6fc; } .g1 { stop-color:#0d1117; }
+  }
+</style>
+<defs><linearGradient id="depth" x1="0" x2="1" y1="0" y2="0"><stop offset="0" class="g0"/><stop offset="1" class="g1"/></linearGradient><radialGradient id="depthsq" cx="0.42" cy="0.55" r="0.75"><stop offset="0" class="g0"/><stop offset="1" class="g1"/></radialGradient><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9" class="lnd" stroke-width="1.6" stroke-linejoin="round"/></marker></defs>
+<text x="40" y="50" class="t" font-size="22" font-weight="650" letter-spacing="-0.2">lerobot-to-cosmos</text>
+<text x="40" y="76" class="m" font-size="14">Turn a LeRobot v3.0 robot dataset into an NVIDIA Cosmos3 video-SFT dataset, then prove it loads with NVIDIA's own code.</text>
+<line x1="40" y1="98" x2="1160" y2="98" class="ln" stroke-width="1"/>
+<text x="40" y="132" class="acc" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" letter-spacing="1.2">01  SOURCE</text>
+<text x="40" y="156" class="t" font-size="17" font-weight="600">LeRobot v3.0</text>
+<text x="331" y="132" class="acc" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" letter-spacing="1.2">02  CONVERT</text>
+<text x="331" y="156" class="t" font-size="17" font-weight="600">lerobot-to-cosmos</text>
+<text x="622" y="132" class="acc" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" letter-spacing="1.2">03  OUTPUT</text>
+<text x="622" y="156" class="t" font-size="17" font-weight="600">Cosmos3 video-SFT</text>
+<text x="913" y="132" class="acc" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" letter-spacing="1.2">04  VERIFY &amp; SHARE</text>
+<text x="913" y="156" class="t" font-size="17" font-weight="600">cosmos-check · Hub</text>
+<line x1="293" y1="245" x2="323" y2="245" class="lnd" stroke-width="1.6" marker-end="url(#arrow)"/>
+<line x1="584" y1="245" x2="614" y2="245" class="lnd" stroke-width="1.6" marker-end="url(#arrow)"/>
+<line x1="875" y1="245" x2="905" y2="245" class="lnd" stroke-width="1.6" marker-end="url(#arrow)"/>
+<rect x="40" y="182" width="245" height="22" rx="3" class="rgb"/>
+<line x1="145.3" y1="182" x2="145.3" y2="204" class="ln" stroke-width="1.5"/>
+<line x1="167.4" y1="182" x2="167.4" y2="204" class="ln" stroke-width="1.5"/>
+<line x1="201.7" y1="182" x2="201.7" y2="204" class="ln" stroke-width="1.5"/>
+<line x1="233.6" y1="182" x2="233.6" y2="204" class="ln" stroke-width="1.5"/>
+<line x1="260.5" y1="182" x2="260.5" y2="204" class="ln" stroke-width="1.5"/>
+<text x="46" y="197" class="monom" font-size="10">realsense</text>
+<rect x="40" y="213" width="245" height="22" rx="3" fill="url(#depth)" opacity="0.85"/>
+<rect x="40" y="213" width="245" height="22" rx="3" class="ln" stroke-width="1"/>
+<line x1="145.3" y1="213" x2="145.3" y2="235" stroke="#8c959f" stroke-width="1.5"/>
+<line x1="167.4" y1="213" x2="167.4" y2="235" stroke="#8c959f" stroke-width="1.5"/>
+<line x1="201.7" y1="213" x2="201.7" y2="235" stroke="#8c959f" stroke-width="1.5"/>
+<line x1="233.6" y1="213" x2="233.6" y2="235" stroke="#8c959f" stroke-width="1.5"/>
+<line x1="260.5" y1="213" x2="260.5" y2="235" stroke="#8c959f" stroke-width="1.5"/>
+<text x="46" y="228" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="10" fill="#1f2328">realsense_depth</text>
+<rect x="40" y="244" width="245" height="22" rx="3" class="rgb"/>
+<line x1="145.3" y1="244" x2="145.3" y2="266" class="ln" stroke-width="1.5"/>
+<line x1="167.4" y1="244" x2="167.4" y2="266" class="ln" stroke-width="1.5"/>
+<line x1="201.7" y1="244" x2="201.7" y2="266" class="ln" stroke-width="1.5"/>
+<line x1="233.6" y1="244" x2="233.6" y2="266" class="ln" stroke-width="1.5"/>
+<line x1="260.5" y1="244" x2="260.5" y2="266" class="ln" stroke-width="1.5"/>
+<text x="46" y="259" class="monom" font-size="10">logitech</text>
+<rect x="40" y="275" width="245" height="22" rx="3" class="rgb"/>
+<line x1="145.3" y1="275" x2="145.3" y2="297" class="ln" stroke-width="1.5"/>
+<line x1="167.4" y1="275" x2="167.4" y2="297" class="ln" stroke-width="1.5"/>
+<line x1="201.7" y1="275" x2="201.7" y2="297" class="ln" stroke-width="1.5"/>
+<line x1="233.6" y1="275" x2="233.6" y2="297" class="ln" stroke-width="1.5"/>
+<line x1="260.5" y1="275" x2="260.5" y2="297" class="ln" stroke-width="1.5"/>
+<text x="46" y="290" class="monom" font-size="10">usb</text>
+<rect x="201.7" y="178" width="31.9" height="123" rx="4" class="accs" stroke-width="1.8"/>
+<text x="217.6" y="315" class="acc" font-size="11" text-anchor="middle" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">1 episode</text>
+<line x1="335.0" y1="188" x2="335.0" y2="210" class="accs" stroke-width="2.2"/>
+<line x1="342.6" y1="196" x2="342.6" y2="210" class="lnd" stroke-width="1"/>
+<line x1="350.2" y1="196" x2="350.2" y2="210" class="lnd" stroke-width="1"/>
+<line x1="357.8" y1="196" x2="357.8" y2="210" class="lnd" stroke-width="1"/>
+<line x1="365.4" y1="196" x2="365.4" y2="210" class="lnd" stroke-width="1"/>
+<line x1="373.0" y1="196" x2="373.0" y2="210" class="lnd" stroke-width="1"/>
+<line x1="380.6" y1="188" x2="380.6" y2="210" class="accs" stroke-width="2.2"/>
+<line x1="388.2" y1="196" x2="388.2" y2="210" class="lnd" stroke-width="1"/>
+<line x1="395.8" y1="196" x2="395.8" y2="210" class="lnd" stroke-width="1"/>
+<line x1="403.4" y1="196" x2="403.4" y2="210" class="lnd" stroke-width="1"/>
+<line x1="411.0" y1="196" x2="411.0" y2="210" class="lnd" stroke-width="1"/>
+<line x1="418.6" y1="196" x2="418.6" y2="210" class="lnd" stroke-width="1"/>
+<line x1="426.2" y1="188" x2="426.2" y2="210" class="accs" stroke-width="2.2"/>
+<line x1="433.8" y1="196" x2="433.8" y2="210" class="lnd" stroke-width="1"/>
+<line x1="441.4" y1="196" x2="441.4" y2="210" class="lnd" stroke-width="1"/>
+<line x1="449.0" y1="196" x2="449.0" y2="210" class="lnd" stroke-width="1"/>
+<line x1="456.6" y1="196" x2="456.6" y2="210" class="lnd" stroke-width="1"/>
+<line x1="464.2" y1="196" x2="464.2" y2="210" class="lnd" stroke-width="1"/>
+<line x1="471.8" y1="188" x2="471.8" y2="210" class="accs" stroke-width="2.2"/>
+<line x1="479.4" y1="196" x2="479.4" y2="210" class="lnd" stroke-width="1"/>
+<line x1="487.0" y1="196" x2="487.0" y2="210" class="lnd" stroke-width="1"/>
+<line x1="494.6" y1="196" x2="494.6" y2="210" class="lnd" stroke-width="1"/>
+<line x1="502.2" y1="196" x2="502.2" y2="210" class="lnd" stroke-width="1"/>
+<line x1="509.8" y1="196" x2="509.8" y2="210" class="lnd" stroke-width="1"/>
+<line x1="517.4" y1="188" x2="517.4" y2="210" class="accs" stroke-width="2.2"/>
+<line x1="525.0" y1="196" x2="525.0" y2="210" class="lnd" stroke-width="1"/>
+<line x1="532.6" y1="196" x2="532.6" y2="210" class="lnd" stroke-width="1"/>
+<line x1="540.2" y1="196" x2="540.2" y2="210" class="lnd" stroke-width="1"/>
+<line x1="547.8" y1="196" x2="547.8" y2="210" class="lnd" stroke-width="1"/>
+<line x1="555.4" y1="196" x2="555.4" y2="210" class="lnd" stroke-width="1"/>
+<line x1="563.0" y1="188" x2="563.0" y2="210" class="accs" stroke-width="2.2"/>
+<text x="331" y="228" class="m" font-size="11.5">30 fps → every 6th frame → 5 fps</text>
+<rect x="333" y="250" width="48" height="48" rx="3" class="rgb"/>
+<circle cx="362.76" cy="278.8" r="7" class="acc" opacity="0.55"/>
+<rect x="398" y="250" width="48" height="48" rx="3" fill="url(#depthsq)"/>
+<rect x="463" y="250" width="48" height="48" rx="3" class="rgb"/>
+<circle cx="492.76" cy="278.8" r="7" class="acc" opacity="0.55"/>
+<rect x="528" y="250" width="48" height="48" rx="3" class="rgb"/>
+<circle cx="557.76" cy="278.8" r="7" class="acc" opacity="0.55"/>
+<text x="331" y="316" class="m" font-size="11.5">one 256×256 clip per camera</text>
+<rect x="622" y="176" width="245" height="134" rx="6" class="bx" stroke-width="1"/>
+<text x="636" y="200" class="mono" font-size="11.5" font-weight="700">train/</text>
+<path d="M642 206 V216 H648" class="lnd" stroke-width="1"/>
+<text x="652" y="220" class="monom" font-size="11.5">videos/  *.mp4  (400 clips)</text>
+<path d="M642 226 V236 H648" class="lnd" stroke-width="1"/>
+<text x="652" y="240" class="monom" font-size="11.5">captions/</text>
+<path d="M642 246 V256 H648" class="lnd" stroke-width="1"/>
+<text x="652" y="260" class="monom" font-size="11.5">video_dataset_file.jsonl</text>
+<text x="636" y="280" class="mono" font-size="11.5" font-weight="700">val/</text>
+<path d="M642 286 V296 H648" class="lnd" stroke-width="1"/>
+<text x="652" y="300" class="monom" font-size="11.5">inference_prompt{,_i2v,_v2v}/</text>
+<rect x="913" y="176" width="245" height="38" rx="6" class="bx" stroke-width="1"/>
+<circle cx="931" cy="195" r="8" class="acc"/>
+<path d="M927.4 195.2 l2.6 2.6 l4.8 -5.2" stroke="#ffffff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="947" y="192" class="mono" font-size="11.5" font-weight="600">cosmos-check loader</text>
+<text x="947" y="207" class="m" font-size="11">NVIDIA's SFT loader · CPU</text>
+<rect x="913" y="222" width="245" height="38" rx="6" class="bx" stroke-width="1"/>
+<circle cx="931" cy="241" r="8" class="acc"/>
+<path d="M927.4 241.2 l2.6 2.6 l4.8 -5.2" stroke="#ffffff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="947" y="238" class="mono" font-size="11.5" font-weight="600">cosmos-check train</text>
+<text x="947" y="253" class="m" font-size="11">5-step SFT run · GPU</text>
+<rect x="913" y="268" width="245" height="38" rx="6" class="bx" stroke-width="1"/>
+<circle cx="931" cy="287" r="8" class="acc"/>
+<path d="M927.4 287.2 l2.6 2.6 l4.8 -5.2" stroke="#ffffff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="947" y="284" class="mono" font-size="11.5" font-weight="600">--push-to-hub</text>
+<text x="947" y="299" class="m" font-size="11">Hugging Face · hf CLI</text>
+<circle cx="43" cy="348" r="2" class="acc"/>
+<text x="53" y="352" class="m" font-size="12.5">100 episodes × 4 cameras, 30 fps</text>
+<circle cx="43" cy="370" r="2" class="acc"/>
+<text x="53" y="374" class="m" font-size="12.5">each camera stored as long shared videos</text>
+<circle cx="43" cy="392" r="2" class="acc"/>
+<text x="53" y="396" class="m" font-size="12.5">depth: 12-bit, log-quantized</text>
+<circle cx="334" cy="348" r="2" class="acc"/>
+<text x="344" y="352" class="m" font-size="12.5">exact frames cut per episode</text>
+<circle cx="334" cy="370" r="2" class="acc"/>
+<text x="344" y="374" class="m" font-size="12.5">resampled to the reference format</text>
+<circle cx="334" cy="392" r="2" class="acc"/>
+<text x="344" y="396" class="m" font-size="12.5">depth → metres → inverse-depth gray</text>
+<circle cx="625" cy="348" r="2" class="acc"/>
+<text x="635" y="352" class="m" font-size="12.5">clips + JSONL index + captions</text>
+<circle cx="625" cy="370" r="2" class="acc"/>
+<text x="635" y="374" class="m" font-size="12.5">val prompts for t2v · i2v · v2v</text>
+<circle cx="625" cy="392" r="2" class="acc"/>
+<text x="635" y="396" class="m" font-size="12.5">validated against NVIDIA's Bridge set</text>
+<circle cx="916" cy="348" r="2" class="acc"/>
+<text x="926" y="352" class="m" font-size="12.5">every clip through NVIDIA's loader</text>
+<circle cx="916" cy="370" r="2" class="acc"/>
+<text x="926" y="374" class="m" font-size="12.5">short training smoke run on GPUs</text>
+<circle cx="916" cy="392" r="2" class="acc"/>
+<text x="926" y="396" class="m" font-size="12.5">private upload, token never stored</text>
+<line x1="40" y1="430" x2="1160" y2="430" class="ln" stroke-width="1"/>
+<text x="40" y="455" class="m" font-size="11.5">Defaults: source <tspan class="monom">omarcavazosgzz/SO101cupsRGBD</tspan>  ·  reference <tspan class="monom">nvidia/BridgeData2-Subset-Synthetic-Captions</tspan>  ·  macOS &amp; Linux, one <tspan class="monom">uv run</tspan> command</text>
+</svg>

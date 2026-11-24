@@ -1,5 +1,7 @@
 # lerobot-to-cosmos
 
+![lerobot-to-cosmos: a LeRobot v3.0 dataset (100 episodes, 4 cameras including depth) is cut into one clip per episode and camera, resampled to 5 fps and 256x256, written in the Cosmos3 video-SFT layout, checked with NVIDIA's own loader, and uploaded to the Hugging Face Hub](docs/abstract.svg)
+
 Converts a **LeRobot v3.0** robot dataset into the **NVIDIA Cosmos3 video-SFT format**, fetching both datasets straight from their Hugging Face links:
 
 | Role | Default link |
@@ -45,13 +47,13 @@ From this folder, convert with the default links:
 uv run lerobot-to-cosmos --out sft_dataset_so101
 ```
 
-Once the repo is on GitHub, the same thing works without cloning:
+Once the repo is on GitHub, the same thing works without cloning (replace `USER`):
 
 ```bash
-uvx --from git+https://github.com/nezih-niegu/lerobot-to-cosmos lerobot-to-cosmos --out sft_dataset_so101
+uvx --from git+https://github.com/USER/lerobot-to-cosmos lerobot-to-cosmos --out sft_dataset_so101
 ```
 
-To install it as a regular command, run `uv tool install .` in this folder, or `uv tool install git+https://github.com/nezih-niegu/lerobot-to-cosmos`. If `lerobot-to-cosmos` isn't found afterwards, run `uv tool update-shell` and open a new terminal.
+To install it as a regular command, run `uv tool install .` in this folder, or `uv tool install git+https://github.com/USER/lerobot-to-cosmos`. If `lerobot-to-cosmos` isn't found afterwards, run `uv tool update-shell` and open a new terminal.
 
 Supported platforms: macOS 14+ on Apple Silicon, macOS 11+ on Intel, and Linux x86_64/aarch64 (glibc). Those are the platforms PyAV ships wheels for.
 
