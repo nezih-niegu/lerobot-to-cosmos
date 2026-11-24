@@ -13,7 +13,7 @@ from lerobot_to_cosmos.depth import DepthQuant, render
 from lerobot_to_cosmos.hub import DatasetLinkError, Repo
 from lerobot_to_cosmos.media import probe, run_ffmpeg
 
-from .conftest import CAMERAS, DEPTH_KEY, patch_depth_m
+from .conftest import CAMERAS, DEPTH_KEY, EPISODE_SECONDS, patch_depth_m
 
 runner = CliRunner()
 CAM_NAMES = [k.split(".")[-1] for k in CAMERAS]
@@ -195,3 +195,38 @@ def test_rebuild_only_with_structured_captions(tmp_path, lerobot_src, bridge_ref
                for row in jsonl(out))
     t2v = json.loads(next((out / "val" / "inference_prompt").glob("*.json")).read_text())
     assert t2v["prompt"] == json.dumps(cj, ensure_ascii=False)
+
+
+def test_episodes_spread_over_several_chunks(tmp_path, lerobot_src, bridge_ref):
+    """LeRobot v3 rolls over to chunk-001, chunk-002, ... as files fill up; every chunk must be read."""
+    import shutil
+
+    import pandas as pd
+
+    src = tmp_path / "src"
+    shutil.copytree(lerobot_src, src)
+    ep_file = src / "meta/episodes/chunk-000/file-000.parquet"
+    eps = pd.read_parquet(ep_file)
+    for key in CAMERAS:                                   # move every camera's file-001 to chunk-001/file-000
+        old = src / f"videos/{key}/chunk-000/file-001.mp4"
+        new = src / f"videos/{key}/chunk-001/file-000.mp4"
+        new.parent.mkdir(parents=True)
+        old.rename(new)
+        moved = eps[f"videos/{key}/file_index"] == 1
+        eps.loc[moved, f"videos/{key}/chunk_index"] = 1
+        eps.loc[moved, f"videos/{key}/file_index"] = 0
+    # episode metadata itself split across two chunks as well
+    eps.iloc[:4].to_parquet(ep_file)
+    (src / "meta/episodes/chunk-001").mkdir()
+    eps.iloc[4:].to_parquet(src / "meta/episodes/chunk-001/file-000.parquet")
+
+    out = tmp_path / "out"
+    r = invoke("--out", str(out), "--source", str(src), "--reference", str(bridge_ref), "--val-episodes", "1")
+    assert r.exit_code == 0
+    assert len(jsonl(out)) == 28                          # same 7 clips x 4 cameras as the single-chunk layout
+    s = summary(out)
+    assert s["episodes_exported"] == 6
+    used = {Path(c["source_video"]).parent.name for c in s["clips"]}
+    assert used == {"chunk-000", "chunk-001"}
+    frames = sum(c["source_duration_s"] for c in s["clips"] if c["camera"].endswith(".realsense"))
+    assert round(frames * 30) == round((sum(EPISODE_SECONDS) - 1.5) * 30)   # everything but the 1.5 s episode
