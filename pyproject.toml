@@ -1,0 +1,28 @@
+[project]
+name = "lerobot-to-cosmos"
+version = "0.1.0"
+description = "Fetch a LeRobot v3.0 dataset and NVIDIA's Bridge reference from Hugging Face and convert the first to the Cosmos3 video-SFT format"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "av>=19.0.2",
+    "huggingface-hub>=2.4.0",
+    "imageio-ffmpeg>=0.8.1",
+    "pandas>=3.1.1",
+    "pyarrow>=26.0.1",
+    "typer>=0.29.2",
+]
+
+[project.scripts]
+lerobot-to-cosmos = "lerobot_to_cosmos.cli:main"
+cosmos-check = "lerobot_to_cosmos.cosmos_check:main"
+
+[build-system]
+requires = ["uv_build>=0.11.32,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "ruff>=0.17.5",
+]
