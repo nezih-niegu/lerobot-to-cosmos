@@ -19,7 +19,13 @@ from .converter import (
     convert,
 )
 from .hub import DatasetLinkError
-from .hub_upload import UploadError, check_repo_id, get_token, upload
+from .hub_upload import (
+    UploadError,
+    check_path_in_repo,
+    check_repo_id,
+    get_token,
+    upload,
+)
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -72,6 +78,8 @@ def run(
     overwrite_captions: Annotated[bool, typer.Option("--overwrite-captions", help="Rewrite existing caption.txt files.")] = False,
     push_to_hub: Annotated[str | None, typer.Option("--push-to-hub", help="After a successful conversion, upload --out to this Hugging Face dataset repo (e.g. your-name/so101-cups-cosmos) with the hf CLI. Asks for a fine-grained hf_ token (or reads HF_TOKEN).")] = None,
     public: Annotated[bool, typer.Option("--public", help="Create the Hub repo as public (default: private). Ignored if it already exists.")] = False,
+    path_in_repo: Annotated[str | None, typer.Option("--path-in-repo", help="Upload into this folder of the Hub repo (e.g. 30fps), so several versions can share one repo. The repo's top-level card becomes an index of the versions.")] = None,
+    clean_root: Annotated[bool, typer.Option("--clean-root", help="With --path-in-repo: delete a dataset previously uploaded to the repo root (train/, val/, summaries) from the Hub.")] = False,
     upload_only: Annotated[bool, typer.Option("--upload-only", help="Skip conversion; just upload an existing --out folder (needs --push-to-hub).")] = False,
 ) -> None:
     """Check compatibility and convert SOURCE into the REFERENCE's Cosmos video-SFT format."""
@@ -86,12 +94,15 @@ def run(
     )
     try:
         token = repo_id = None
+        if (path_in_repo or clean_root) and not push_to_hub:
+            raise UploadError("--path-in-repo / --clean-root only apply with --push-to-hub.")
         if upload_only and not push_to_hub:
             raise UploadError("--upload-only needs --push-to-hub <your-name/repo-name>.")
         if push_to_hub:
             if check_only:
                 raise UploadError("--push-to-hub can't be combined with --check-only (nothing is written).")
             repo_id = check_repo_id(push_to_hub)
+            path_in_repo = check_path_in_repo(path_in_repo)
             # Ask up front, so a long conversion doesn't end up waiting at a prompt.
             token = get_token(typer.prompt)
         code = 0 if upload_only else convert(opts)
@@ -99,7 +110,7 @@ def run(
             if code != 0:
                 typer.echo("Not uploading: the conversion did not pass validation.", err=True)
             else:
-                upload(out, repo_id, token, private=not public)
+                upload(out, repo_id, token, private=not public, path_in_repo=path_in_repo, clean_root=clean_root)
     except (ConversionError, DatasetLinkError, UploadError) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(2) from None

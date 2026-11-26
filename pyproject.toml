@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "Fetch a LeRobot v3.0 dataset and NVIDIA's Bridge reference from Hugging Face and convert the first to the Cosmos3 video-SFT format"
 readme = "README.md"
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = [
     "av>=19.0.2",
     "huggingface-hub>=2.4.0",

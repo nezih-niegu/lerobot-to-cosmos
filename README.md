@@ -114,6 +114,15 @@ uv run lerobot-to-cosmos --out sft_dataset_so101 --push-to-hub your-name/so101-c
 uv run lerobot-to-cosmos --out sft_dataset_so101 --upload-only --push-to-hub your-name/so101-cups-cosmos   # upload an existing folder, no reconversion
 ```
 
+To keep several versions in **one** repo (e.g. 5 fps and 30 fps), give each its own folder with `--path-in-repo`:
+
+```bash
+uv run lerobot-to-cosmos --out sft_dataset_so101 --upload-only --push-to-hub your-name/so101-cups-cosmos --path-in-repo 5fps
+uv run lerobot-to-cosmos --out sft_dataset_so101_30fps --upload-only --push-to-hub your-name/so101-cups-cosmos --path-in-repo 30fps
+```
+
+Each folder is a complete dataset with its own card. The repo's top-level card becomes an index of the versions, and is refreshed after every upload. To train on one version, point `DATASET_PATH` at its folder. If the repo already has a version at its root from an earlier upload without `--path-in-repo`, the tool stops instead of mixing the two layouts. Upload that version into a folder too, adding `--clean-root` to remove the root copy from the Hub; your local files aren't touched.
+
 It asks for a **fine-grained token** (`hf_...`) with hidden input, at the start, so a long conversion never stops at a prompt. Create one at <https://huggingface.co/settings/tokens/new?tokenType=fineGrained> with *Write access to contents/settings of all repos under your personal namespace*, or the same for an organization you upload to. For unattended runs, set `HF_TOKEN` instead of typing it.
 
 The token is used for this run only. It's handed to `hf` through the environment: never saved to disk, never placed on a command line (where shell history or `ps` would show it), and masked if `hf` prints it. Before uploading, the tool checks that the token works, that the repo's namespace is your account or one of your organizations, and that the token can write there. It accepts a classic write token too, with a warning.
@@ -170,6 +179,31 @@ The run passes the way NVIDIA's smoke test does: training exits cleanly, every i
 
 Requirements are NVIDIA's: Ampere or newer GPUs, CUDA ≥ 12.8, `git`, and `ffmpeg` (`sudo apt-get install -y git ffmpeg`). You also need plenty of disk space; base checkpoints and training checkpoints take 100+ GB. If Hugging Face asks for a login while downloading checkpoints, set `HF_TOKEN`. On a Mac, `train` stops at the preflight check and points you to `loader`.
 
+### 3. Full fine-tune + validation video (Linux + NVIDIA GPUs)
+
+```bash
+uv run cosmos-check train -d sft_dataset_so101 --model edge --full --dry-run   # plan, time and disk estimate
+uv run cosmos-check train -d sft_dataset_so101 --model edge --full
+```
+
+`--full` trains with NVIDIA's recipe exactly as shipped: 500 iterations, a checkpoint every 100, a 50-step warm-up, learning rate 1e-4. The run is named `so101_full_<model>`. It reuses the environment, VAE and base checkpoint from the smoke run. Before starting, it uses the smoke run's measurements to estimate how long training will take and how much disk the checkpoints need.
+
+- **Interrupted?** Run the same command again. NVIDIA's trainer resumes from the run's latest checkpoint, including optimizer state and iteration count. A run that already finished skips straight to the video.
+- **Longer or shorter:** `--iters 2000` changes the length. The learning-rate schedule is stretched so it still decays by the end.
+- **Less disk:** `--save-every 250` keeps fewer checkpoints.
+- **Start over / keep runs separate:** `--run-name my_run` starts a new run, e.g. `-d sft_dataset_so101_30fps --run-name so101_full_edge_30fps`.
+
+After training, it exports the final checkpoint to Hugging Face format (`<run>/model`) and makes a **validation video**. It takes the first frame and caption of a held-out validation episode (realsense camera by default) and generates a 5-second image-to-video clip with both the base model and your fine-tuned model. It then writes `<run>/val_samples/<episode>_comparison.mp4`: real episode | base model | fine-tuned, side by side with labels.
+
+To make more videos, or videos from an earlier checkpoint, without retraining:
+
+```bash
+uv run cosmos-check sample -d sft_dataset_so101 --model edge --clips 3 --seconds 8
+uv run cosmos-check sample -d sft_dataset_so101 --model edge --checkpoint-iter 200 --camera logitech
+```
+
+NVIDIA's content guardrails stay on during generation, as their model license expects.
+
 ## Development
 
 ```bash
@@ -180,3 +214,7 @@ COSMOS_CHECK_PYTHON=~/.cache/lerobot-to-cosmos/loader-env-*/bin/python \
   COSMOS_REPO=~/.cache/lerobot-to-cosmos/cosmos-framework-a3fb34690e15 uv run pytest
 uv run ruff check .
 ```
+
+## License
+
+[MIT](LICENSE). This covers the code in this repository only. A converted dataset keeps its source dataset's license; the dataset card copies it over when the source declares one. `cosmos-check` downloads NVIDIA's cosmos-framework at run time, under NVIDIA's own license, and it isn't included here.

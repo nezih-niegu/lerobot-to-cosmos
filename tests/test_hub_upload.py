@@ -18,12 +18,47 @@ from lerobot_to_cosmos.hub_upload import CARD_MARKER
 runner = CliRunner()
 TOKEN = "hf_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7"
 FAKE_HF = """#!{python}
-import json, os, sys
+# Stand-in for the `hf` CLI: a tiny Hub kept in $FAKE_HF_REMOTE (one folder = one repo's files).
+import fnmatch, json, os, shutil, sys
+from pathlib import Path
+args = sys.argv[1:]
 with open(os.environ["FAKE_HF_LOG"], "a") as f:
-    f.write(json.dumps({{"argv": sys.argv[1:], "token": os.environ.get("HF_TOKEN")}}) + "\\n")
-if os.environ.get("FAKE_HF_FAIL") and sys.argv[1] == "upload":
-    print("401 Unauthorized for token " + os.environ.get("HF_TOKEN", ""))
-    sys.exit(1)
+    f.write(json.dumps({{"argv": args, "token": os.environ.get("HF_TOKEN")}}) + "\\n")
+remote = Path(os.environ["FAKE_HF_REMOTE"])
+def positional(rest):
+    out = []
+    for a in rest:
+        if a.startswith("--"):
+            break
+        out.append(a)
+    return out
+def opt(name):
+    return args[args.index(name) + 1] if name in args else None
+if args[0] == "upload":
+    if os.environ.get("FAKE_HF_FAIL"):
+        print("401 Unauthorized for token " + os.environ.get("HF_TOKEN", "")); sys.exit(1)
+    repo, local, dest = (positional(args[1:]) + ["."])[:3]
+    local, root = Path(local), remote / repo
+    if local.is_file():
+        (root / dest).parent.mkdir(parents=True, exist_ok=True); shutil.copy(local, root / dest)
+    else:
+        for p in local.rglob("*"):
+            if p.is_file() and p.name != ".DS_Store":
+                t = root / dest / p.relative_to(local); t.parent.mkdir(parents=True, exist_ok=True); shutil.copy(p, t)
+elif args[0] == "download":
+    repo, name = positional(args[1:])[:2]
+    src = remote / repo / name
+    if not src.is_file():
+        print("404 Entry Not Found: " + name); sys.exit(1)
+    dst = Path(opt("--local-dir")) / name; dst.parent.mkdir(parents=True, exist_ok=True); shutil.copy(src, dst)
+elif args[:2] == ["repos", "delete-files"]:
+    repo, *patterns = positional(args[2:])
+    root = remote / repo
+    for p in list(root.rglob("*")):
+        if p.is_file() and any(fnmatch.fnmatch(p.relative_to(root).as_posix(), pat) for pat in patterns):
+            p.unlink()
+elif args[:2] == ["repos", "create"]:
+    (remote / positional(args[2:])[0]).mkdir(parents=True, exist_ok=True)
 print("ok")
 """
 
@@ -46,6 +81,9 @@ def fake_hf(tmp_path, monkeypatch):
     log = tmp_path / "hf_calls.jsonl"
     monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ['PATH']}")
     monkeypatch.setenv("FAKE_HF_LOG", str(log))
+    remote = tmp_path / "fake_hub"
+    remote.mkdir()
+    monkeypatch.setenv("FAKE_HF_REMOTE", str(remote))
     monkeypatch.delenv("HF_TOKEN", raising=False)
 
     import huggingface_hub
@@ -56,6 +94,13 @@ def fake_hf(tmp_path, monkeypatch):
         pass
 
     monkeypatch.setattr(huggingface_hub.HfApi, "whoami", lambda self, token=None: state["info"])
+
+    def list_repo_files(self, repo_id, repo_type=None, token=None, **kw):
+        root = remote / repo_id
+        return sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file())
+
+    monkeypatch.setattr(huggingface_hub.HfApi, "list_repo_files", list_repo_files)
+    state["remote"] = remote
     monkeypatch.setattr(huggingface_hub.HfApi, "dataset_info",
                         lambda self, repo_id, token=None: type("I", (), {"card_data": Card(license=state["license"])})())
 
@@ -198,3 +243,89 @@ def test_card_inherits_license_from_hub_source(tmp_path, fake_hf, converted, mon
     state["license"] = None                                                # source card without a license
     assert runner.invoke(app, ["--out", str(out), "--upload-only", "--push-to-hub", "me/x"]).exit_code == 0
     assert "license:" not in (out / "README.md").read_text()               # regenerated card, still ours
+
+
+# --------------------------------------------------------------------------- several versions in one repo
+@pytest.fixture(scope="module")
+def converted_30fps(tmp_path_factory, lerobot_src, bridge_ref) -> Path:
+    out = tmp_path_factory.mktemp("conv30") / "sft_dataset_so101_30fps"
+    r = runner.invoke(app, ["--out", str(out), "--source", str(lerobot_src), "--reference", str(bridge_ref),
+                            "-c", "observation.images.realsense", "-c", "observation.images.realsense_depth",
+                            "--max-episodes", "2", "--val-episodes", "1", "--fps", "0"])
+    assert r.exit_code == 0, r.output
+    return out
+
+
+def remote_files(state, repo):
+    root = state["remote"] / repo
+    return sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file())
+
+
+def test_two_versions_share_one_repo(tmp_path, fake_hf, converted, converted_30fps, monkeypatch):
+    state, _calls = fake_hf
+    monkeypatch.setenv("HF_TOKEN", TOKEN)
+    repo = "me/so101-cups-cosmos"
+    for out, sub in ((copy_of(converted, tmp_path / "a"), "5fps"), (copy_of(converted_30fps, tmp_path / "b"), "30fps")):
+        r = runner.invoke(app, ["--out", str(out), "--upload-only", "--push-to-hub", repo, "--path-in-repo", sub])
+        print(r.output)
+        assert r.exit_code == 0 and f"/tree/main/{sub}" in r.output
+
+    files = remote_files(state, repo)
+    for sub in ("5fps", "30fps"):
+        assert f"{sub}/train/video_dataset_file.jsonl" in files and f"{sub}/val/inference_prompt" in " ".join(files)
+    assert not any(f.startswith(("train/", "val/")) for f in files)          # nothing at the root but the card
+    a = {f.split("/", 1)[1] for f in files if f.startswith("5fps/")}
+    b = {f.split("/", 1)[1] for f in files if f.startswith("30fps/")}
+    assert a == b                                                            # same layout, separate copies
+
+    index = (state["remote"] / repo / "README.md").read_text()
+    assert index.startswith("---\ntags:") and CARD_MARKER in index
+    assert "[`30fps/`]" in index and "[`5fps/`]" in index
+    assert "256x256, 5 fps" in index and "256x256, 30 fps" in index
+    assert '--include "30fps/*"' in index                                    # versions sorted: 30fps first
+    sub_card = (state["remote"] / repo / "30fps" / "README.md").read_text()
+    assert not sub_card.startswith("---") and "# so101-cups-cosmos / 30fps" in sub_card
+    assert "DATASET_PATH=$PWD/so101-cups-cosmos/30fps" in sub_card
+
+
+def test_root_upload_then_folders_needs_clean_root(tmp_path, fake_hf, converted, converted_30fps, monkeypatch):
+    state, _calls = fake_hf
+    monkeypatch.setenv("HF_TOKEN", TOKEN)
+    repo = "me/x"
+    five, thirty = copy_of(converted, tmp_path / "a"), copy_of(converted_30fps, tmp_path / "b")
+    assert runner.invoke(app, ["--out", str(five), "--upload-only", "--push-to-hub", repo]).exit_code == 0
+    assert "train/video_dataset_file.jsonl" in remote_files(state, repo)     # earlier, flat upload
+
+    r = runner.invoke(app, ["--out", str(thirty), "--upload-only", "--push-to-hub", repo, "--path-in-repo", "30fps"])
+    assert r.exit_code == 2 and "--clean-root" in r.output
+    assert not any(f.startswith("30fps/") for f in remote_files(state, repo))   # stopped before uploading
+
+    for out, sub in ((five, "5fps"), (thirty, "30fps")):
+        r = runner.invoke(app, ["--out", str(out), "--upload-only", "--push-to-hub", repo, "--path-in-repo", sub,
+                                "--clean-root"])
+        print(r.output)
+        assert r.exit_code == 0
+    files = remote_files(state, repo)
+    assert not any(f.startswith(("train/", "val/")) or f == "conversion_summary.json" for f in files)
+    assert "5fps/train/video_dataset_file.jsonl" in files and "30fps/train/video_dataset_file.jsonl" in files
+    assert "[`5fps/`]" in (state["remote"] / repo / "README.md").read_text()
+
+
+def test_own_root_readme_is_kept(tmp_path, fake_hf, converted, monkeypatch):
+    state, _calls = fake_hf
+    monkeypatch.setenv("HF_TOKEN", TOKEN)
+    (state["remote"] / "me/y").mkdir(parents=True)
+    (state["remote"] / "me/y/README.md").write_text("# hand-written card\n")
+    r = runner.invoke(app, ["--out", str(copy_of(converted, tmp_path)), "--upload-only", "--push-to-hub", "me/y",
+                            "--path-in-repo", "5fps"])
+    assert r.exit_code == 0 and "Keeping the repo's own README.md" in r.output
+    assert (state["remote"] / "me/y/README.md").read_text() == "# hand-written card\n"
+
+
+@pytest.mark.parametrize("args, message", [
+    (["--path-in-repo", "30fps"], "only apply with --push-to-hub"),
+    (["--push-to-hub", "me/x", "--path-in-repo", "../up"], "--path-in-repo must be a folder name"),
+])
+def test_path_in_repo_argument_errors(tmp_path, fake_hf, args, message):
+    r = runner.invoke(app, ["--out", str(tmp_path / "o"), *args])
+    assert r.exit_code == 2 and message in r.output

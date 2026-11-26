@@ -187,3 +187,107 @@ def test_nvidia_loader_catches_broken_dataset(tmp_path, lerobot_src, bridge_ref)
                                "--tokenizer", tok])
     print(r.output)
     assert r.exit_code == 1 and "FAIL" in r.output and victim.stem in r.output
+
+
+def test_missing_dataset_suggests_the_right_path(tmp_path, monkeypatch):
+    proj = tmp_path / "Projects" / "lerobot-to-cosmos"
+    (proj / "sft_dataset_so101" / "train").mkdir(parents=True)
+    (proj / "sft_dataset_so101" / "train" / "video_dataset_file.jsonl").write_text("{}\n")
+    monkeypatch.chdir(proj)
+    r = runner.invoke(cc.app, ["train", "-d", "../sft_dataset_so101", "--dry-run"])
+    assert r.exit_code == 2 and "doesn't exist" in r.output and "did you mean -d sft_dataset_so101" in r.output
+
+
+# --------------------------------------------------------------------------- full runs + validation videos
+def test_full_toml_keeps_recipe_and_stretches_lr_cycle():
+    t = tomllib.loads(cc.full_toml(RECIPE_TOML, name="so101_full_edge", iters=None, save_every=None))
+    assert t["job"]["name"] == "so101_full_edge"
+    assert t["trainer"]["max_iter"] == 500 and t["checkpoint"]["save_iter"] == 100
+    assert t["scheduler"]["warm_up_steps"] == [50] and t["scheduler"]["cycle_lengths"] == [1000]
+    t = tomllib.loads(cc.full_toml(RECIPE_TOML, name="n", iters=2000, save_every=500))
+    assert t["trainer"]["max_iter"] == 2000 and t["checkpoint"]["save_iter"] == 500
+    assert t["scheduler"]["cycle_lengths"] == [2000]                  # LR still decays to the end
+
+
+def test_iteration_seconds_and_full_judge():
+    log = "\n".join(f"[RANK 0] Iteration {i}: Hit counter: {i}/50 | Loss: {0.3 - i/100:.4f} | Time: {t}s"
+                    for i, t in enumerate([90.0, 40.0, 12.5, 12.0, 13.0, 12.2], 1))
+    assert cc.iteration_seconds(log) == pytest.approx(12.5)
+    full_log = log + "\nSaved checkpoint to /o/iter_000000500\nDone with training."
+    ok, lines = cc.judge_training(0, full_log, 500, full=True)     # only 6 logged lines for 500 iters: fine
+    assert ok and "checkpoint: /o/iter_000000500" in lines
+
+
+def _ds(tmp_path):
+    ds = tmp_path / "ds"
+    (ds / "train").mkdir(parents=True)
+    (ds / "train" / "video_dataset_file.jsonl").write_text("{}\n")
+    (ds / "val" / "inference_prompt_i2v").mkdir(parents=True)
+    return ds
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="exercises the Linux preflight")
+def test_full_dry_run_plans_training_export_and_videos(tmp_path, monkeypatch):
+    ds = _ds(tmp_path)
+    monkeypatch.setattr(cc, "gpu_count", lambda: 1)
+    work = tmp_path / "work"
+    r = runner.invoke(cc.app, ["train", "-d", str(ds), "--model", "edge", "--full", "--workdir", str(work), "--dry-run"])
+    print(r.output)
+    assert r.exit_code == 0
+    for needle in ("SFT full run: Cosmos3-Edge, 500 iterations on 1 GPU(s), run 'so101_full_edge'",
+                   "bash examples/so101_full_edge.sh", "export_model", "--no-vit", "Validation video",
+                   "(base vs fine-tuned)", "--model-mode image2video", "Run dir: " + str(work)):
+        assert needle in r.output, needle
+    assert not work.exists()
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="exercises the Linux preflight")
+def test_full_run_resumes_and_skips_when_finished(tmp_path, monkeypatch):
+    ds = _ds(tmp_path)
+    monkeypatch.setattr(cc, "gpu_count", lambda: 1)
+    L = cc.Layout(tmp_path / "work", "edge", "so101_full_edge")
+    ck = L.run_dir / "checkpoints"
+    (ck / "iter_000000200").mkdir(parents=True)
+    (ck / "latest_checkpoint.txt").write_text("iter_000000200")
+    args = ["train", "-d", str(ds), "--model", "edge", "--full", "--workdir", str(L.work), "--dry-run"]
+    r = runner.invoke(cc.app, args)
+    assert "resuming from iter_000000200" in r.output and "skipped (already finished" not in r.output
+    (ck / "iter_000000500").mkdir()
+    (ck / "latest_checkpoint.txt").write_text("iter_000000500")
+    r = runner.invoke(cc.app, args)
+    assert "skipped (already finished (iter_000000500))" in r.output and "Validation video" in r.output
+
+
+def test_sample_dry_run_and_errors(tmp_path):
+    ds = _ds(tmp_path)
+    r = runner.invoke(cc.app, ["sample", "-d", str(ds), "--workdir", str(tmp_path / "w"), "--dry-run", "--clips", "2"])
+    assert r.exit_code == 0 and "export_model" in r.output and "Validation videos" in r.output
+    r = runner.invoke(cc.app, ["sample", "-d", str(ds), "--workdir", str(tmp_path / "w")])
+    assert r.exit_code == 2 and "run `cosmos-check train` first" in r.output
+
+
+def test_validation_prompts_and_side_by_side(tmp_path, lerobot_src, bridge_ref):
+    out = tmp_path / "out"
+    assert runner.invoke(convert_app, ["--out", str(out), "--source", str(lerobot_src), "--reference", str(bridge_ref),
+                                       "--val-episodes", "1"]).exit_code == 0
+    files = cc.pick_val_prompts(out, 5, None)
+    assert files and all(f.stem.endswith("_realsense") for f in files)           # RGB realsense preferred
+    assert all(f.stem.endswith("_logitech") for f in cc.pick_val_prompts(out, 5, "logitech"))
+    with pytest.raises(cc.CheckError):
+        cc.pick_val_prompts(out, 1, "thermal")
+
+    items = cc.prepare_prompts(files[:1], out, tmp_path / "prompts", seconds=5)
+    it = items[0]
+    rec = json.loads((tmp_path / "prompts" / f"{it['uuid']}.json").read_text())
+    assert rec["num_frames"] == it["num_frames"] == 25 and (rec["num_frames"] - 1) % 4 == 0   # 5 s at 5 fps
+    assert Path(rec["vision_path"]).is_absolute() and Path(rec["vision_path"]).is_file()
+    assert rec["name"] == it["uuid"] and rec["fps"] == 5
+
+    # stand-ins for the two generated videos: any clips of the same rate
+    gen = sorted((out / "train" / "videos").glob("*_logitech.mp4"))[:2]
+    combo = tmp_path / "cmp.mp4"
+    cc.compose_comparison([("real episode", it["gt"]), ("base", gen[0]), ("fine-tuned", gen[1])],
+                          it["fps"], it["num_frames"], combo)
+    from lerobot_to_cosmos.media import probe
+    m = probe(combo)
+    assert (m["width"], m["height"], m["total_frames"]) == (768, 256, 25)
